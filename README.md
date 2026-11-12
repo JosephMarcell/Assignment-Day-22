@@ -132,3 +132,10 @@ Saat server backend berjalan di port 3000:
 | `POST` | `/api/products` | Tambah produk baru ke PostgreSQL | 201 Created / 400 Bad Request |
 | `PUT` | `/api/products/:id` | Update produk di PostgreSQL | 200 OK / 404 Not Found |
 | `DELETE`| `/api/products/:id` | Hapus produk dari PostgreSQL | 200 OK / 404 Not Found |
+
+---
+
+## 🤖 Penggunaan AI:
+- Pembuatan README
+- Review Kode
+
