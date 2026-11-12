@@ -179,7 +179,21 @@
 
   <!-- Main Product Detail Page (PDP) -->
   <main class="product-page-main">
-    <div class="product-layout-grid">
+
+    <!-- Loading State: Ditampilkan saat fetch API sedang berlangsung -->
+    <div class="api-state-card" id="api-loading-state" role="status" aria-live="polite">
+      <div class="spinner"></div>
+      <p class="state-text">Memuat data produk dari server PostgreSQL...</p>
+    </div>
+
+    <!-- Error State: Ditampilkan jika request jaringan atau server gagal -->
+    <div class="api-state-card api-error-card" id="api-error-state" role="alert" style="display: none;">
+      <p class="error-text" id="api-error-text">Gagal mengambil data dari backend.</p>
+      <button type="button" class="btn-retry" id="btn-api-retry">Coba Lagi (Retry)</button>
+    </div>
+
+    <!-- Konten Produk: Ditampilkan setelah data berhasil di-load -->
+    <div class="product-layout-grid" id="product-content-wrapper" style="display: none;">
 
       <!-- LEFT COLUMN: Product Gallery -->
       <section class="product-media-column" aria-label="Product Media Gallery">
@@ -260,26 +274,41 @@
 
         <!-- Variation Options: Capacity (Di-render Dinamis dari Backend Variation) -->
         <div class="swatch-option-container">
-          <label class="swatch-label">
-            <span>Capacity: </span>
-            <span class="selected-swatch-val" id="selected-size-label">-</span>
-          </label>
+          <div class="swatch-header-row">
+            <label class="swatch-label">
+              <span>Capacity: </span>
+              <span class="selected-swatch-val" id="selected-size-label">-</span>
+            </label>
+            <!-- Info Status Stok Dinamis dari PostgreSQL -->
+            <div class="product-stock-status" id="product-stock-display">
+              <span class="stock-badge in-stock">Stok: <strong id="stock-val">-</strong> unit</span>
+            </div>
+          </div>
           
           <div class="swatches-buttons-row" id="swatches-buttons-row" role="radiogroup" aria-label="Capacity">
           </div>
         </div>
 
-        <!-- Purchase Actions Row: Quantity + Add to Cart + Love Wishlist (NO SUBTOTAL/TOTAL) -->
+        <!-- Ringkasan Subtotal Realtime di Halaman Produk -->
+        <div class="product-subtotal-bar" id="product-subtotal-bar" aria-live="polite">
+          <span class="subtotal-label">Subtotal:</span>
+          <span class="subtotal-amount" id="product-live-subtotal">-</span>
+        </div>
+
+        <!-- Pesan Error Validasi Quantity -->
+        <div class="qty-error-msg" id="qty-error-msg" role="alert" aria-live="polite"></div>
+
+        <!-- Purchase Actions Row: Quantity + Add to Cart + Love Wishlist -->
         <div class="add-to-cart-wrapper">
           
-          <!-- Quantity Capsule Counter -->
+          <!-- Quantity Capsule Counter (bisa diketik langsung & validasi bilangan bulat positif) -->
           <div class="qty-capsule">
             <button type="button" class="qty-btn" id="btn-minus" aria-label="Decrease quantity" disabled>−</button>
-            <input type="text" class="qty-field" id="quantity-input" value="1" readonly aria-label="Quantity">
+            <input type="text" inputmode="numeric" class="qty-field" id="quantity-input" value="1" aria-label="Quantity" autocomplete="off">
             <button type="button" class="qty-btn" id="btn-plus" aria-label="Increase quantity">+</button>
           </div>
 
-          <!-- Add to Cart Button (Dimatikan secara default hingga ada respon dari backend) -->
+          <!-- Add to Cart Button -->
           <button type="button" class="btn-primary-cart" id="btn-add-to-cart" disabled style="opacity: 0.6; cursor: not-allowed;">
             <span id="btn-cart-text">Add to Cart</span>
           </button>

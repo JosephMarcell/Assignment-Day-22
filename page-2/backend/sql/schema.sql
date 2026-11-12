@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS products (
   description TEXT,
   more_information TEXT,
   features JSONB NOT NULL DEFAULT '[]'::jsonb,
+  stock INT NOT NULL DEFAULT 15,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -18,6 +19,7 @@ ALTER TABLE products ADD COLUMN IF NOT EXISTS photo VARCHAR(255) DEFAULT 'unica.
 ALTER TABLE products ADD COLUMN IF NOT EXISTS variation JSONB DEFAULT '[]'::jsonb;
 ALTER TABLE products ADD COLUMN IF NOT EXISTS more_information TEXT;
 ALTER TABLE products ADD COLUMN IF NOT EXISTS features JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS stock INT DEFAULT 15;
 
 -- Lepaskan constraint NOT NULL pada kolom lama agar kompatibel
 DO $$ 

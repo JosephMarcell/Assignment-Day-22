@@ -214,11 +214,12 @@ const createProduct = async (req, res) => {
   const productDesc = Description || description || '';
   const moreInfo = req.body['More Information'] || req.body.moreInformation || req.body.more_information || '';
   const productFeatures = Features || features || [];
+  const productStock = req.body.Stock !== undefined ? Number(req.body.Stock) : (req.body.stock !== undefined ? Number(req.body.stock) : 15);
 
   try {
     const sql = `
-      INSERT INTO products (name, photo, variation, description, more_information, features)
-      VALUES ($1, $2, $3, $4, $5, $6)
+      INSERT INTO products (name, photo, variation, description, more_information, features, stock)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING *;
     `;
     const params = [
@@ -227,7 +228,8 @@ const createProduct = async (req, res) => {
       JSON.stringify(productVariation),
       productDesc,
       moreInfo,
-      JSON.stringify(productFeatures)
+      JSON.stringify(productFeatures),
+      productStock
     ];
 
     const { rows } = await query(sql, params);
@@ -282,6 +284,7 @@ const updateProduct = async (req, res) => {
     const reqDesc = req.body.Description || req.body.description;
     const reqMoreInfo = req.body['More Information'] || req.body.moreInformation || req.body.more_information;
     const reqFeatures = req.body.Features || req.body.features;
+    const reqStock = req.body.Stock !== undefined ? Number(req.body.Stock) : (req.body.stock !== undefined ? Number(req.body.stock) : undefined);
 
     const toPgJson = (val) => {
       if (val === undefined || val === null) return '[]';
@@ -294,6 +297,7 @@ const updateProduct = async (req, res) => {
     const updatedDesc = reqDesc !== undefined ? reqDesc : current.description;
     const updatedMoreInfo = reqMoreInfo !== undefined ? reqMoreInfo : current.more_information;
     const updatedFeatures = toPgJson(reqFeatures !== undefined ? reqFeatures : current.features);
+    const updatedStock = reqStock !== undefined ? reqStock : (current.stock !== undefined ? current.stock : 15);
 
     const updateSql = `
       UPDATE products
@@ -304,8 +308,9 @@ const updateProduct = async (req, res) => {
         description = $4,
         more_information = $5,
         features = $6,
+        stock = $7,
         updated_at = NOW()
-      WHERE id = $7
+      WHERE id = $8
       RETURNING *;
     `;
     const { rows: updatedRows } = await query(updateSql, [
@@ -315,6 +320,7 @@ const updateProduct = async (req, res) => {
       updatedDesc,
       updatedMoreInfo,
       updatedFeatures,
+      updatedStock,
       productId
     ]);
 

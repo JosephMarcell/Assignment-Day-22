@@ -298,12 +298,28 @@ document.addEventListener('DOMContentLoaded', () => {
   renderStars(selectedRating);
 
   // =========================================================================
-  // 4. BACKEND API INTEGRATION (PRODUCT ID: 1)
+  // 4. BACKEND API INTEGRATION & STATE MANAGEMENT (PRODUCT ID: 1)
   // =========================================================================
-  const API_URL = 'http://localhost:3000/api/products/1';
-  let productData = null;
+  const API_URL = (window.location.port === '3000' || window.location.pathname.startsWith('/page-2'))
+    ? '/api/products/1'
+    : 'http://localhost:3000/api/products/1';
 
-  // DOM Elements untuk Detail Produk
+  let productData = null;
+  let totalStock = 10; // Nilai default sebelum dimuat dari PostgreSQL
+  let currentUnitPrice = 94.30; // Harga default variasi
+  let currentQty = 1;
+  let isQtyValid = true;
+  let selectedVariation = null; // Menyimpan variasi terpilih { size, price }
+  let isWishlisted = false;
+
+  // DOM Elements untuk State Management (Loading & Error)
+  const apiLoadingStateEl = document.getElementById('api-loading-state');
+  const apiErrorStateEl = document.getElementById('api-error-state');
+  const apiErrorTextEl = document.getElementById('api-error-text');
+  const btnApiRetry = document.getElementById('btn-api-retry');
+  const productContentWrapper = document.getElementById('product-content-wrapper');
+
+  // DOM Elements untuk Detail Produk & Subtotal
   const productNameEl = document.getElementById('product-name');
   const productSubtitleEl = document.getElementById('product-subtitle');
   const brandTitleEl = document.getElementById('brand-title');
@@ -316,6 +332,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const descPanelBody = document.getElementById('desc-inner-body');
   const infoPanelBody = document.getElementById('info-inner-body');
   const featuresTbody = document.getElementById('features-tbody');
+  const stockValEl = document.getElementById('stock-val');
+  const productLiveSubtotalEl = document.getElementById('product-live-subtotal');
+  const qtyErrorMsgEl = document.getElementById('qty-error-msg');
 
   // DOM Elements untuk Action: Add to Cart & Quantity
   const btnAddToCart = document.getElementById('btn-add-to-cart');
@@ -324,11 +343,116 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnPlus = document.getElementById('btn-plus');
   const quantityInput = document.getElementById('quantity-input');
   const btnWishlist = document.getElementById('btn-wishlist');
-  let currentQty = 1;
-  let isWishlisted = false;
-  let selectedVariation = null; // Menyimpan variasi terpilih { size, price }
 
-  // Event listener untuk tombol variasi/swatch yang di-render secara dinamis
+  // Fungsi Transisi State (Loading / Error / Content)
+  function showLoadingState() {
+    if (apiLoadingStateEl) apiLoadingStateEl.style.display = 'flex';
+    if (apiErrorStateEl) apiErrorStateEl.style.display = 'none';
+    if (productContentWrapper) productContentWrapper.style.display = 'none';
+    disableProductInteractions('Memuat...');
+  }
+
+  function showErrorState(message) {
+    if (apiLoadingStateEl) apiLoadingStateEl.style.display = 'none';
+    if (apiErrorStateEl) apiErrorStateEl.style.display = 'flex';
+    if (apiErrorTextEl) {
+      apiErrorTextEl.textContent = message || 'Gagal mengambil data dari backend.';
+    }
+    if (productContentWrapper) productContentWrapper.style.display = 'none';
+    disableProductInteractions('Backend Offline');
+  }
+
+  function showContentState() {
+    if (apiLoadingStateEl) apiLoadingStateEl.style.display = 'none';
+    if (apiErrorStateEl) apiErrorStateEl.style.display = 'none';
+    if (productContentWrapper) productContentWrapper.style.display = 'grid';
+    enableProductInteractions();
+  }
+
+  // Fungsi Validasi Input Quantity & Perhitungan Live Subtotal
+  function validateAndCalculate() {
+    if (!quantityInput) return;
+    const rawVal = quantityInput.value.trim();
+
+    // 1. Tidak boleh kosong
+    if (rawVal === '') {
+      showQtyError('Quantity tidak boleh kosong!');
+      return;
+    }
+
+    const num = Number(rawVal);
+
+    // 2. Harus berupa angka
+    if (isNaN(num)) {
+      showQtyError('Quantity harus berupa angka valid!');
+      return;
+    }
+
+    // 3. Harus bilangan bulat positif (bukan desimal/pecahan)
+    if (!Number.isInteger(num)) {
+      showQtyError('Quantity harus berupa bilangan bulat positif (bukan pecahan)!');
+      return;
+    }
+
+    // 4. Minimal 1 (tidak boleh 0 atau negatif)
+    if (num <= 0) {
+      showQtyError('Quantity minimal 1 (tidak boleh 0 atau negatif)!');
+      return;
+    }
+
+    // 5. Tidak boleh melebihi stok total dari data PostgreSQL
+    if (num > totalStock) {
+      showQtyError(`Quantity melebihi stok yang tersedia (maksimal ${totalStock})!`);
+      return;
+    }
+
+    // Jika valid:
+    clearQtyError();
+    currentQty = num;
+
+    // Perbarui tombol minus & plus
+    if (btnMinus) btnMinus.disabled = currentQty <= 1;
+    if (btnPlus) btnPlus.disabled = currentQty >= totalStock;
+
+    // Hitung & perbarui Live Subtotal via textContent
+    const liveSubtotal = currentUnitPrice * currentQty;
+    if (productLiveSubtotalEl) {
+      productLiveSubtotalEl.textContent = `$${liveSubtotal.toFixed(2)}`;
+    }
+  }
+
+  function showQtyError(message) {
+    isQtyValid = false;
+    if (qtyErrorMsgEl) {
+      qtyErrorMsgEl.textContent = message;
+      qtyErrorMsgEl.style.display = 'block';
+    }
+    if (productLiveSubtotalEl) {
+      productLiveSubtotalEl.textContent = '-';
+    }
+    if (btnAddToCart) {
+      btnAddToCart.disabled = true;
+      btnAddToCart.style.opacity = '0.5';
+      btnAddToCart.style.cursor = 'not-allowed';
+    }
+    if (btnMinus) btnMinus.disabled = true;
+    if (btnPlus) btnPlus.disabled = true;
+  }
+
+  function clearQtyError() {
+    isQtyValid = true;
+    if (qtyErrorMsgEl) {
+      qtyErrorMsgEl.textContent = '';
+      qtyErrorMsgEl.style.display = 'none';
+    }
+    if (btnAddToCart && productData) {
+      btnAddToCart.disabled = false;
+      btnAddToCart.style.opacity = '1';
+      btnAddToCart.style.cursor = 'pointer';
+    }
+  }
+
+  // Event listener untuk tombol variasi/swatch dinamis
   function attachSwatchListeners() {
     const currentSwatchButtons = document.querySelectorAll('.swatch-val-btn');
     currentSwatchButtons.forEach((btn) => {
@@ -346,6 +470,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const size = btn.getAttribute('data-size');
         const rawPrice = parseFloat(btn.getAttribute('data-raw-price')) || 0;
 
+        currentUnitPrice = rawPrice;
+
         selectedVariation = {
           size: size,
           price: rawPrice
@@ -353,16 +479,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (selectedSizeLabel && size) selectedSizeLabel.textContent = size;
         if (productPriceEl) productPriceEl.textContent = `$${rawPrice.toFixed(2)}`;
+
+        // Perbarui Live Subtotal saat variasi berubah
+        validateAndCalculate();
       });
     });
   }
 
-  // Render data produk dari backend ke elemen DOM
+  // Render data produk dari backend ke elemen DOM (Aman dari XSS)
   function renderProduct(prod) {
     if (!prod) return;
     productData = prod;
 
-    // 1. Title, Breadcrumb & Brand
+    // Baca dan render Stok Produk dari Database
+    totalStock = Number(prod.Stock !== undefined ? prod.Stock : (prod.stock !== undefined ? prod.stock : 10));
+    if (stockValEl) {
+      stockValEl.textContent = totalStock;
+    }
+
+    // 1. Title, Breadcrumb & Brand (via textContent)
     document.title = `${prod.Name} | 50ml`;
     if (productNameEl) productNameEl.textContent = prod.Name;
     if (bcCurrentEl) bcCurrentEl.textContent = prod.Name;
@@ -380,7 +515,7 @@ document.addEventListener('DOMContentLoaded', () => {
       brandTitleEl.title = brand;
     }
 
-    // Subtitle produk diambil dari Features atau kalimat pertama Description
+    // Subtitle produk
     let subtitle = '';
     if (Array.isArray(prod.Features)) {
       const concern = prod.Features.find((f) => f.label && f.label.toLowerCase() === 'concern')?.value;
@@ -433,8 +568,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // 3. Render Variasi Ukuran & Harga secara Dinamis dari 'prod.Variation'
-    // Variasi produk wajib dipilih antara 50 atau 100 ml, default awal adalah 50 ml.
-    // Harga produk diperoleh langsung dari variasinya.
     if (swatchesContainer && Array.isArray(prod.Variation) && prod.Variation.length > 0) {
       // Cari variasi default 50 ml
       const defaultVar = prod.Variation.find((v) => {
@@ -445,7 +578,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const defaultSize = typeof defaultVar === 'object' && defaultVar !== null ? defaultVar.size : String(defaultVar);
       const defaultPrice = typeof defaultVar === 'object' && defaultVar !== null ? Number(defaultVar.price) : 0;
 
-      // Set variasi awal (default 50 ml)
+      currentUnitPrice = defaultPrice;
+
       selectedVariation = {
         size: defaultSize,
         price: defaultPrice
@@ -473,11 +607,9 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
       }).join('');
 
-      // Tampilkan label kapasitas dan harga dari variasi yang aktif (default: 50 ml)
       if (selectedSizeLabel) selectedSizeLabel.textContent = defaultSize;
       if (productPriceEl) productPriceEl.textContent = `$${defaultPrice.toFixed(2)}`;
 
-      // Pasang event listener ke swatch buttons baru
       attachSwatchListeners();
     } else {
       selectedVariation = null;
@@ -485,40 +617,50 @@ document.addEventListener('DOMContentLoaded', () => {
       if (productPriceEl) productPriceEl.textContent = '-';
     }
 
-    // 4. Accordion 1: Description (Diambil dari prod.Description)
+    // 4. Accordion 1: Description (Safe DOM injection via textContent)
     if (descPanelBody && prod.Description) {
-      descPanelBody.innerHTML = `<p>${prod.Description}</p>`;
+      descPanelBody.textContent = '';
+      const p = document.createElement('p');
+      p.textContent = prod.Description;
+      descPanelBody.appendChild(p);
     }
 
-    // 5. Accordion 2: More Information (Diambil dari prod['More Information'])
+    // 5. Accordion 2: More Information (Safe DOM injection)
     const moreInfoText = prod['More Information'] || prod.moreInformation || prod.more_information;
     if (infoPanelBody && moreInfoText) {
-      infoPanelBody.innerHTML = `<p>${moreInfoText}</p>`;
+      infoPanelBody.textContent = '';
+      const p = document.createElement('p');
+      p.textContent = moreInfoText;
+      infoPanelBody.appendChild(p);
     }
 
-    // 6. Accordion 3: Features (Diambil dari prod.Features)
+    // 6. Accordion 3: Features (Safe DOM injection)
     if (featuresTbody && prod.Features) {
-      if (Array.isArray(prod.Features)) {
-        featuresTbody.innerHTML = prod.Features.map((f, i) => `
-          <tr class="${i % 2 === 0 ? 'row-highlight' : ''}">
-            <th scope="row">${f.label}</th>
-            <td>${f.value}</td>
-          </tr>
-        `).join('');
-      } else if (typeof prod.Features === 'object') {
-        featuresTbody.innerHTML = Object.entries(prod.Features).map(([label, val], i) => `
-          <tr class="${i % 2 === 0 ? 'row-highlight' : ''}">
-            <th scope="row">${label}</th>
-            <td>${val}</td>
-          </tr>
-        `).join('');
-      }
+      featuresTbody.textContent = '';
+      const rowsData = Array.isArray(prod.Features) 
+        ? prod.Features 
+        : Object.entries(prod.Features).map(([label, value]) => ({ label, value }));
+
+      rowsData.forEach((f, i) => {
+        const tr = document.createElement('tr');
+        if (i % 2 === 0) tr.classList.add('row-highlight');
+        const th = document.createElement('th');
+        th.setAttribute('scope', 'row');
+        th.textContent = f.label || '';
+        const td = document.createElement('td');
+        td.textContent = f.value || '';
+        tr.appendChild(th);
+        tr.appendChild(td);
+        featuresTbody.appendChild(tr);
+      });
     }
+
+    // Hitung Live Subtotal awal setelah data dirender
+    validateAndCalculate();
   }
 
-  // Fungsi untuk mematikan seluruh interaksi produk (Add to Cart, Wishlist, Bintang, Variasi) jika backend belum/gagal merespon
+  // Fungsi untuk mematikan interaksi saat backend belum siap / error
   function disableProductInteractions(btnMessage = 'Add to Cart') {
-    // 1. Add to Cart & Quantity
     if (btnAddToCart) {
       btnAddToCart.disabled = true;
       btnAddToCart.style.opacity = '0.5';
@@ -529,7 +671,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnMinus) btnMinus.disabled = true;
     if (btnPlus) btnPlus.disabled = true;
 
-    // 2. Wishlist Button (Hati)
     if (btnWishlist) {
       btnWishlist.disabled = true;
       btnWishlist.style.opacity = '0.5';
@@ -537,7 +678,6 @@ document.addEventListener('DOMContentLoaded', () => {
       btnWishlist.setAttribute('aria-disabled', 'true');
     }
 
-    // 3. Star Rating Buttons (Bintang 1-5)
     starButtons.forEach((btn) => {
       btn.disabled = true;
       btn.style.opacity = '0.5';
@@ -545,7 +685,6 @@ document.addEventListener('DOMContentLoaded', () => {
       btn.setAttribute('aria-disabled', 'true');
     });
 
-    // 4. Tombol Variasi Kapasitas (50 ml / 100 ml)
     const swatchBtns = document.querySelectorAll('.swatch-val-btn');
     swatchBtns.forEach((btn) => {
       btn.disabled = true;
@@ -555,20 +694,18 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Fungsi untuk mengaktifkan kembali seluruh interaksi produk setelah respon sukses dari backend
+  // Fungsi untuk mengaktifkan kembali seluruh interaksi setelah data siap
   function enableProductInteractions() {
-    // 1. Add to Cart & Quantity
-    if (btnAddToCart) {
+    if (btnAddToCart && isQtyValid) {
       btnAddToCart.disabled = false;
       btnAddToCart.style.opacity = '1';
       btnAddToCart.style.cursor = 'pointer';
       btnAddToCart.removeAttribute('aria-disabled');
       if (btnCartText) btnCartText.textContent = 'Add to Cart';
     }
-    if (btnPlus) btnPlus.disabled = false;
+    if (btnPlus) btnPlus.disabled = currentQty >= totalStock;
     if (btnMinus) btnMinus.disabled = currentQty <= 1;
 
-    // 2. Wishlist Button (Hati)
     if (btnWishlist) {
       btnWishlist.disabled = false;
       btnWishlist.style.opacity = '1';
@@ -576,7 +713,6 @@ document.addEventListener('DOMContentLoaded', () => {
       btnWishlist.removeAttribute('aria-disabled');
     }
 
-    // 3. Star Rating Buttons (Bintang 1-5)
     starButtons.forEach((btn) => {
       btn.disabled = false;
       btn.style.opacity = '1';
@@ -584,7 +720,6 @@ document.addEventListener('DOMContentLoaded', () => {
       btn.removeAttribute('aria-disabled');
     });
 
-    // 4. Tombol Variasi Kapasitas (50 ml / 100 ml)
     const swatchBtns = document.querySelectorAll('.swatch-val-btn');
     swatchBtns.forEach((btn) => {
       btn.disabled = false;
@@ -596,6 +731,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Panggil data produk ID 1 dari backend REST API
   async function fetchProductDetail() {
+    showLoadingState();
+
     try {
       const response = await fetch(API_URL);
       if (!response.ok) {
@@ -604,44 +741,55 @@ document.addEventListener('DOMContentLoaded', () => {
       const json = await response.json();
       if (json.status === 'success' && json.data) {
         renderProduct(json.data);
-        enableProductInteractions(); // Respon sukses: aktifkan Add to Cart, Wishlist, dan Bintang!
+        showContentState(); // Sukses: tampilkan konten produk dan hilangkan loading
       } else {
-        throw new Error('Respon backend tidak valid atau status bukan success');
+        throw new Error('Respon backend tidak valid atau status bukan success.');
       }
     } catch (err) {
-      console.warn('Backend belum merespon atau terjadi error:', err);
+      console.warn('[Backend Error]:', err.message);
       productData = null;
-      disableProductInteractions('Add to Cart'); // Gagal / error: matikan Add to Cart, Wishlist, dan Bintang!
-
-      // Auto-retry fetch setiap 2 detik
-      setTimeout(fetchProductDetail, 2000);
+      showErrorState('Gagal mengambil data dari backend.');
     }
   }
 
-  // Set awal: Seluruh interaksi produk dimatikan sampai respon valid dari backend diterima
-  disableProductInteractions('Add to Cart');
+  // Pasang listener tombol Retry manual pada Error State
+  if (btnApiRetry) {
+    btnApiRetry.addEventListener('click', () => {
+      fetchProductDetail();
+    });
+  }
 
-  // Load data awal dari backend
+  // Load data awal dari backend saat DOM siap
   fetchProductDetail();
 
   // =========================================================================
-  // 5. QUANTITY CONTROLLER (min. 1)
+  // 5. QUANTITY CONTROLLER (Input Event, Minus & Plus)
   // =========================================================================
-  const updateQuantity = (newVal) => {
-    currentQty = Math.max(1, newVal);
-    if (quantityInput) quantityInput.value = currentQty;
-    if (btnMinus) btnMinus.disabled = currentQty <= 1;
-  };
+  if (quantityInput) {
+    quantityInput.addEventListener('input', () => {
+      validateAndCalculate();
+    });
+
+    quantityInput.addEventListener('change', () => {
+      validateAndCalculate();
+    });
+  }
 
   if (btnMinus) {
     btnMinus.addEventListener('click', () => {
-      if (currentQty > 1) updateQuantity(currentQty - 1);
+      if (currentQty > 1 && isQtyValid) {
+        quantityInput.value = currentQty - 1;
+        validateAndCalculate();
+      }
     });
   }
 
   if (btnPlus) {
     btnPlus.addEventListener('click', () => {
-      updateQuantity(currentQty + 1);
+      if (currentQty < totalStock && isQtyValid) {
+        quantityInput.value = currentQty + 1;
+        validateAndCalculate();
+      }
     });
   }
 
@@ -651,14 +799,19 @@ document.addEventListener('DOMContentLoaded', () => {
   // Add to Cart: Menambahkan item dinamis ke keranjang belanja
   if (btnAddToCart) {
     btnAddToCart.addEventListener('click', () => {
-      // Proteksi tambahan: jika belum ada data produk valid atau tombol disabled, batalkan aksi
+      validateAndCalculate();
+      if (!isQtyValid || currentQty < 1 || currentQty > totalStock) {
+        showToast('Jumlah quantity belum valid!');
+        return;
+      }
+
       if (!productData || !productData.id || btnAddToCart.disabled) {
         showToast('Produk belum berhasil dimuat dari server backend.');
         return;
       }
-      // Variasi wajib dipilih antara 50 atau 100 ml
+
       if (!selectedVariation || !selectedVariation.size || selectedVariation.price === undefined) {
-        showToast('Pilih salah satu variasi (50 ml atau 100 ml) terlebih dahulu.');
+        showToast('Pilih salah satu variasi terlebih dahulu.');
         return;
       }
 

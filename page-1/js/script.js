@@ -295,11 +295,21 @@ document.addEventListener('DOMContentLoaded', () => {
   renderStars(selectedRating);
 
   // =========================================================================
-  // 4. CAPACITY / SIZE VARIATIONS (50 ml, 100 ml)
+  // 4. CAPACITY / SIZE VARIATIONS (50 ml, 100 ml) & STOK PRODUK
   // =========================================================================
+  const PRODUCT_STOCK = 10; // Data stok hardcoded untuk Innoxa Unica AJ
   const swatchButtons = document.querySelectorAll('.swatch-val-btn');
   const selectedSizeLabel = document.getElementById('selected-size-label');
   const productPriceEl = document.getElementById('product-price');
+  const productLiveSubtotalEl = document.getElementById('product-live-subtotal');
+  const qtyErrorMsgEl = document.getElementById('qty-error-msg');
+  const stockValEl = document.getElementById('stock-val');
+
+  if (stockValEl) {
+    stockValEl.textContent = PRODUCT_STOCK;
+  }
+
+  let currentUnitPrice = 94.30; // Default 50 ml price
 
   swatchButtons.forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -313,37 +323,139 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const size = btn.getAttribute('data-size');
       const price = btn.getAttribute('data-price');
+      const numericPrice = parseFloat(price ? price.replace('$', '') : '94.30') || 94.30;
+
+      currentUnitPrice = numericPrice;
 
       if (selectedSizeLabel && size) selectedSizeLabel.textContent = size;
       if (productPriceEl && price) productPriceEl.textContent = price;
+
+      // Update ringkasan subtotal live saat variasi berubah
+      validateAndCalculate();
     });
   });
 
   // =========================================================================
-  // 5. QUANTITY CONTROLLER (min. 1)
+  // 5. QUANTITY CONTROLLER & VALIDASI INPUT (min. 1, max. stock, bulat positif)
   // =========================================================================
   const btnMinus = document.getElementById('btn-minus');
   const btnPlus = document.getElementById('btn-plus');
   const quantityInput = document.getElementById('quantity-input');
   let currentQty = 1;
+  let isQtyValid = true;
 
-  const updateQuantity = (newVal) => {
-    currentQty = Math.max(1, newVal);
-    if (quantityInput) quantityInput.value = currentQty;
+  function validateAndCalculate() {
+    if (!quantityInput) return;
+    const rawVal = quantityInput.value.trim();
+
+    // 1. Validasi tidak boleh kosong
+    if (rawVal === '') {
+      showQtyError('Quantity tidak boleh kosong!');
+      return;
+    }
+
+    const num = Number(rawVal);
+
+    // 2. Validasi harus berupa angka
+    if (isNaN(num)) {
+      showQtyError('Quantity harus berupa angka valid!');
+      return;
+    }
+
+    // 3. Validasi bilangan bulat (integer, tidak boleh desimal/pecahan)
+    if (!Number.isInteger(num)) {
+      showQtyError('Quantity harus berupa bilangan bulat positif (bukan pecahan)!');
+      return;
+    }
+
+    // 4. Validasi angka positif (> 0)
+    if (num <= 0) {
+      showQtyError('Quantity minimal 1 (tidak boleh 0 atau negatif)!');
+      return;
+    }
+
+    // 5. Validasi tidak boleh melebihi stok total
+    if (num > PRODUCT_STOCK) {
+      showQtyError(`Quantity melebihi stok yang tersedia (maksimal ${PRODUCT_STOCK})!`);
+      return;
+    }
+
+    // Jika semua valid:
+    clearQtyError();
+    currentQty = num;
+
+    // Perbarui tombol minus & plus
     if (btnMinus) btnMinus.disabled = currentQty <= 1;
-  };
+    if (btnPlus) btnPlus.disabled = currentQty >= PRODUCT_STOCK;
+
+    // Hitung dan perbarui Subtotal Realtime di halaman produk
+    const liveSubtotal = currentUnitPrice * currentQty;
+    if (productLiveSubtotalEl) {
+      productLiveSubtotalEl.textContent = `$${liveSubtotal.toFixed(2)}`;
+    }
+  }
+
+  function showQtyError(message) {
+    isQtyValid = false;
+    if (qtyErrorMsgEl) {
+      qtyErrorMsgEl.textContent = message;
+      qtyErrorMsgEl.style.display = 'block';
+    }
+    if (productLiveSubtotalEl) {
+      productLiveSubtotalEl.textContent = '-';
+    }
+    if (btnAddToCart) {
+      btnAddToCart.disabled = true;
+      btnAddToCart.style.opacity = '0.5';
+      btnAddToCart.style.cursor = 'not-allowed';
+    }
+    if (btnMinus) btnMinus.disabled = true;
+    if (btnPlus) btnPlus.disabled = true;
+  }
+
+  function clearQtyError() {
+    isQtyValid = true;
+    if (qtyErrorMsgEl) {
+      qtyErrorMsgEl.textContent = '';
+      qtyErrorMsgEl.style.display = 'none';
+    }
+    if (btnAddToCart) {
+      btnAddToCart.disabled = false;
+      btnAddToCart.style.opacity = '1';
+      btnAddToCart.style.cursor = 'pointer';
+    }
+  }
+
+  if (quantityInput) {
+    quantityInput.addEventListener('input', () => {
+      validateAndCalculate();
+    });
+
+    quantityInput.addEventListener('change', () => {
+      validateAndCalculate();
+    });
+  }
 
   if (btnMinus) {
     btnMinus.addEventListener('click', () => {
-      if (currentQty > 1) updateQuantity(currentQty - 1);
+      if (currentQty > 1 && isQtyValid) {
+        quantityInput.value = currentQty - 1;
+        validateAndCalculate();
+      }
     });
   }
 
   if (btnPlus) {
     btnPlus.addEventListener('click', () => {
-      updateQuantity(currentQty + 1);
+      if (currentQty < PRODUCT_STOCK && isQtyValid) {
+        quantityInput.value = currentQty + 1;
+        validateAndCalculate();
+      }
     });
   }
+
+  // Hitung subtotal awal saat halaman dimuat
+  validateAndCalculate();
 
   // =========================================================================
   // 6. ADD TO CART & LOVE WISHLIST
@@ -356,6 +468,12 @@ document.addEventListener('DOMContentLoaded', () => {
   // Add to Cart: Menambahkan item, update subtotal, dan memunculkan Modal Sidebar
   if (btnAddToCart) {
     btnAddToCart.addEventListener('click', () => {
+      validateAndCalculate();
+      if (!isQtyValid || currentQty < 1 || currentQty > PRODUCT_STOCK) {
+        showToast('Jumlah quantity belum valid.');
+        return;
+      }
+
       const activeSize = selectedSizeLabel ? selectedSizeLabel.textContent.trim() : '50 ml';
       const unitPrice = activeSize === '100 ml' ? 135.70 : 94.30;
       const itemId = `unica-aj-${activeSize.replace(/\s+/g, '').toLowerCase()}`;

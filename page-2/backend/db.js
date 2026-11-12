@@ -16,6 +16,10 @@ export const pool = new Pool({
   ssl,
 });
 
+pool.on('error', (err) => {
+  console.error('[PostgreSQL Pool Error]:', err.message);
+});
+
 export const query = (text, params) => pool.query(text, params);
 
 /**
@@ -26,6 +30,7 @@ export function formatProduct(row) {
   if (!row) return null;
   const variation = typeof row.variation === 'string' ? JSON.parse(row.variation) : (row.variation || []);
   const features = typeof row.features === 'string' ? JSON.parse(row.features) : (row.features || []);
+  const stockNum = row.stock !== undefined && row.stock !== null ? Number(row.stock) : 10;
   
   return {
     id: Number(row.id),
@@ -35,6 +40,7 @@ export function formatProduct(row) {
     Description: row.description || '',
     'More Information': row.more_information || '',
     Features: features,
+    Stock: stockNum,
     // Alias lowercase untuk kemudahan akses
     name: row.name,
     photo: row.photo,
@@ -42,6 +48,7 @@ export function formatProduct(row) {
     description: row.description || '',
     more_information: row.more_information || '',
     features: features,
+    stock: stockNum,
     created_at: row.created_at,
     updated_at: row.updated_at
   };

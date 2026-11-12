@@ -273,10 +273,16 @@
 
         <!-- Variation Options: Capacity (50 ml, 100 ml) -->
         <div class="swatch-option-container">
-          <label class="swatch-label">
-            <span>Capacity: </span>
-            <span class="selected-swatch-val" id="selected-size-label">50 ml</span>
-          </label>
+          <div class="swatch-header-row">
+            <label class="swatch-label">
+              <span>Capacity: </span>
+              <span class="selected-swatch-val" id="selected-size-label">50 ml</span>
+            </label>
+            <!-- Info Status Stok Produk -->
+            <div class="product-stock-status" id="product-stock-display">
+              <span class="stock-badge in-stock">Stok: <strong id="stock-val">10</strong> unit</span>
+            </div>
+          </div>
           
           <div class="swatches-buttons-row" role="radiogroup" aria-label="Capacity">
             <button 
@@ -304,13 +310,22 @@
           </div>
         </div>
 
-        <!-- Purchase Actions Row: Quantity + Add to Cart + Love Wishlist (NO SUBTOTAL/TOTAL) -->
+        <!-- Ringkasan Subtotal Realtime di Halaman Produk -->
+        <div class="product-subtotal-bar" id="product-subtotal-bar" aria-live="polite">
+          <span class="subtotal-label">Subtotal:</span>
+          <span class="subtotal-amount" id="product-live-subtotal">$94.30</span>
+        </div>
+
+        <!-- Pesan Error Validasi Quantity -->
+        <div class="qty-error-msg" id="qty-error-msg" role="alert" aria-live="polite"></div>
+
+        <!-- Purchase Actions Row: Quantity + Add to Cart + Love Wishlist -->
         <div class="add-to-cart-wrapper">
           
-          <!-- Quantity Capsule Counter -->
+          <!-- Quantity Capsule Counter (bisa diketik langsung & validasi bilangan bulat positif) -->
           <div class="qty-capsule">
             <button type="button" class="qty-btn" id="btn-minus" aria-label="Decrease quantity" disabled>−</button>
-            <input type="text" class="qty-field" id="quantity-input" value="1" readonly aria-label="Quantity">
+            <input type="text" inputmode="numeric" class="qty-field" id="quantity-input" value="1" aria-label="Quantity" autocomplete="off">
             <button type="button" class="qty-btn" id="btn-plus" aria-label="Increase quantity">+</button>
           </div>
 

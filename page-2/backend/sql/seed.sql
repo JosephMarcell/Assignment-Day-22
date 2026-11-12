@@ -1,6 +1,6 @@
 -- Seed Data untuk Halaman 2 PDP (Produk Innoxa Unica AJ & Innoxa Radiance Serum)
 
-INSERT INTO products (id, name, photo, variation, description, more_information, features)
+INSERT INTO products (id, name, photo, variation, description, more_information, features, stock)
 OVERRIDING SYSTEM VALUE
 VALUES 
 (
@@ -20,7 +20,8 @@ VALUES
     {"label": "Body Part", "value": "Face"},
     {"label": "Product Type", "value": "Cream"},
     {"label": "Concern", "value": "Anti Age"}
-  ]'::jsonb
+  ]'::jsonb,
+  10
 ),
 (
   2,
@@ -39,7 +40,8 @@ VALUES
     {"label": "Body Part", "value": "Face & Neck"},
     {"label": "Product Type", "value": "Serum"},
     {"label": "Concern", "value": "Radiance & Glow"}
-  ]'::jsonb
+  ]'::jsonb,
+  15
 )
 ON CONFLICT (id) DO UPDATE SET
   name = EXCLUDED.name,
@@ -48,6 +50,7 @@ ON CONFLICT (id) DO UPDATE SET
   description = EXCLUDED.description,
   more_information = EXCLUDED.more_information,
   features = EXCLUDED.features,
+  stock = EXCLUDED.stock,
   updated_at = NOW();
 
 -- Sinkronisasi sequence id auto-increment

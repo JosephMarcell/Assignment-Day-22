@@ -943,53 +943,91 @@ a {
   margin-bottom: 24px;
 }
 
+.swatch-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
 .swatch-label {
   display: block;
   font-size: 14px;
   font-weight: 400;
   color: var(--color-black);
-  margin-bottom: 10px;
 }
 
 .selected-swatch-val {
   font-weight: 600;
 }
 
-.swatches-buttons-row {
-  display: flex;
-  gap: 12px;
-}
-
-.swatch-val-btn {
-  height: 42px;
-  padding: 0 20px;
-  min-width: 80px;
+/* Status Stok Produk */
+.product-stock-status {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  border: 1px solid #D1D5DB;
-  border-radius: 8px;
-  background-color: #FFFFFF;
-  font-size: 14px;
+}
+
+.stock-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  font-size: 12px;
   font-weight: 500;
-  color: var(--color-black);
-  transition: border-color var(--transition-speed), box-shadow var(--transition-speed);
-  cursor: pointer;
+  border-radius: 4px;
 }
 
-.swatch-val-btn:hover {
-  border-color: var(--color-black);
+.stock-badge.in-stock {
+  background-color: #E8F5E9;
+  color: #2E7D32;
+  border: 1px solid #C8E6C9;
 }
 
-.swatch-val-btn.active {
-  border-color: var(--color-black);
-  box-shadow: 0 0 0 1px var(--color-black);
-  font-weight: 600;
+.stock-badge.in-stock strong {
+  font-weight: 700;
+}
+
+/* ==========================================================================
+   Ringkasan Subtotal Realtime di Halaman Produk
+   ========================================================================== */
+.product-subtotal-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background-color: #FAF9F8;
+  border: 1px solid #E5E7EB;
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+
+.product-subtotal-bar .subtotal-label {
+  font-size: 14px;
+  color: #4B5563;
+  font-weight: 500;
+}
+
+.product-subtotal-bar .subtotal-amount {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  font-family: var(--font-primary);
+}
+
+/* Pesan Error Validasi Quantity */
+.qty-error-msg {
+  display: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: #DC2626;
+  background-color: #FEF2F2;
+  border: 1px solid #FCA5A5;
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin-bottom: 14px;
+  line-height: 1.4;
 }
 
 /* ==========================================================================
    Purchase Actions Row: Quantity + Add to Cart + Love Wishlist
-   (NO SUBTOTAL / TOTAL DISPLAY)
    ========================================================================== */
 .add-to-cart-wrapper {
   display: flex;
